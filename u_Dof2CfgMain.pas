@@ -69,6 +69,35 @@ begin
   end;
 end;
 
+type TStringArray = array of string;
+const cPATHLINELIMIT = 1000;
+
+procedure FixPaths(aLongline : string; var aLines : TStringArray; const aMaxLength : integer; const aFileVersion : string);
+    procedure AddFixedPath(aPath : string);
+    begin
+      ReplaceDelphi(aFileVersion, aPath);
+      ReplaceEnvironmentVariables(aPath);
+      SetLength(aLines, Length(aLines) + 1);
+      aLines[High(aLines)] := aPath;
+    end;
+var sPos, ePos : integer;
+begin
+  SetLength(aLines, 0);
+  sPos := 1;
+  while (sPos+aMaxLength-1) < Length(aLongline) do begin
+    ePos := sPos + aMaxLength;
+    while (ePos >= 1) and (aLongline[ePos] <> ';') do
+      Dec(ePos);
+
+    AddFixedPath(Copy(aLongline, sPos, ePos - sPos + 1 - 1));
+    sPos := ePos+1;
+    end;
+  ePos := Length(aLongline);
+
+  if ePos > sPos then
+    AddFixedPath(Copy(aLongline, sPos, ePos - sPos + 1));
+end;
+
 function Main: integer;
 var
   DofFn: string;
@@ -76,6 +105,7 @@ var
   Dof: TMemIniFile;
   cfg: TStringlist;
   s: string;
+  sarr : TStringArray;
   FileVersion: string;
 begin
   if ParamCount <> 1 then
@@ -365,21 +395,21 @@ begin
 
     // Unit directories
     s := Dof.ReadString('Directories', 'SearchPath', '');
-    ReplaceDelphi(FileVersion, s);
-    ReplaceEnvironmentVariables(s);
-    cfg.Add('-U"' + s + '"');
+    FixPaths(s, sarr, cPATHLINELIMIT, FileVersion);
+    for s in sarr do
+      cfg.Add('-U"' + s + '"');
 
     // Object directories
     s := Dof.ReadString('Directories', 'SearchPath', '');
-    ReplaceDelphi(FileVersion, s);
-    ReplaceEnvironmentVariables(s);
-    cfg.Add('-O"' + s + '"');
+    FixPaths(s, sarr, cPATHLINELIMIT, FileVersion);
+    for s in sarr do
+      cfg.Add('-O"' + s + '"');
 
     // IncludeDirs
     s := Dof.ReadString('Directories', 'SearchPath', '');
-    ReplaceDelphi(FileVersion, s);
-    ReplaceEnvironmentVariables(s);
-    cfg.Add('-I"' + s + '"');
+    FixPaths(s, sarr, cPATHLINELIMIT, FileVersion);
+    for s in sarr do
+      cfg.Add('-I"' + s + '"');
 
     // look for 8.3 filenames - never used
     // cfg.Add('-P');
@@ -389,9 +419,9 @@ begin
 
     // Resource directories
     s := Dof.ReadString('Directories', 'SearchPath', '');
-    ReplaceDelphi(FileVersion, s);
-    ReplaceEnvironmentVariables(s);
-    cfg.Add('-R"' + s + '"');
+    FixPaths(s, sarr, cPATHLINELIMIT, FileVersion);
+    for s in sarr do
+      cfg.Add('-R"' + s + '"');
 
     // Conditionals
     s := Dof.ReadString('Directories', 'Conditionals', '');
